@@ -1,76 +1,148 @@
-import express, { Request, Response } from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express'; // Aliased imports
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import path from 'path'; // Added path import
+import path from 'path';
 import { processQuery } from './utils/queryProcessor';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const port = Number(process.env.PORT) || 3000;
+const port: number = Number(process.env.PORT) || 3000;
 
 // Middleware
 app.use(cors());
-// Use an inline require for json middleware
-app.use(require('express').json());
+app.use(require('express').json()); // Reverted to require('express').json()
 
-// MCP endpoint for querying Expo documentation
-app.post('/query', async (req: Request, res: Response) => { // Reverted to imported Request, Response
-  const { query, maxResults } = req.body;
-  
+// 🔹 POST /query endpoint
+app.post('/query', async (req: ExpressRequest, res: ExpressResponse): Promise<void> => { // Used aliased types
+  const { query, maxResults }: { query?: string; maxResults?: number } = req.body;
+
   if (!query) {
     res.status(400).json({ error: 'Query is required' });
-    return; // Ensure void return path
+    return;
   }
-  
+
   try {
-    const result = await processQuery(query, maxResults);
+    const result = await processQuery(query, maxResults || 5);
     res.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error processing query:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Simple health check endpoint
-app.get('/health', (_req: Request, res: Response) => { // Reverted to imported Request, Response
+// 🔹 GET /health check
+app.get('/health', (_req: ExpressRequest, res: ExpressResponse): void => { // Used aliased types
   res.json({ status: 'ok', message: 'Expo Documentation MCP Server is running' });
 });
 
-// Serve mcp-config.json for discovery
+// 🔹 Optional JSON discovery fallback
 const mcpConfigPath = path.resolve(__dirname, '../mcp-config.json');
-let mcpConfigContent: string | null = null;
+let mcpConfigJson: Record<string, unknown> | null = null;
+
 try {
-  mcpConfigContent = fs.readFileSync(mcpConfigPath, 'utf8');
+  const raw = fs.readFileSync(mcpConfigPath, 'utf8');
+  mcpConfigJson = JSON.parse(raw);
 } catch (err) {
-  console.error("Error reading mcp-config.json:", err);
+  console.warn('⚠️ mcp-config.json not found or invalid. Static discovery endpoints skipped.');
 }
 
-if (mcpConfigContent) {
-  const mcpConfigJson = JSON.parse(mcpConfigContent);
-  const serveMcpConfig = (_req: Request, res: Response) => {
-    res.json(mcpConfigJson);
+if (mcpConfigJson) {
+  const serveJson = (_req: ExpressRequest, res: ExpressResponse): void => { // Added :void return type and braces
+    res.json(mcpConfigJson!);
   };
-  app.get('/', serveMcpConfig);
-  app.get('/mcp.json', serveMcpConfig);
-  app.get('/.well-known/mcp.json', serveMcpConfig);
-  app.get('/mcp-config.json', serveMcpConfig);
-  console.log(`Serving mcp-config.json at /, /mcp.json, /.well-known/mcp.json, and /mcp-config.json`);
-} else {
-  console.warn("mcp-config.json could not be loaded. Server discovery endpoints will not be available.");
+  app.get('/', serveJson);
+  app.get('/mcp.json', serveJson);
+  app.get('/.well-known/mcp.json', serveJson);
+  app.get('/mcp-config.json', serveJson);
+  console.log('✅ Serving mcp-config.json at standard discovery paths');
 }
 
+// ✅ GET /mcp — Cline-compatible SSE tool definition
+app.get('/mcp', (_req: ExpressRequest, res: ExpressResponse): void => { // Used aliased types
+  console.log('GET /mcp — streaming tool definition for Cline');
 
-// Start the server
-app.listen(port, () => {
-  console.log(`Expo Documentation MCP Server running on port ${port}`);
-  
-  // Make sure the vector store directory exists
-  const vectorStorePath = process.env.VECTOR_STORE_PATH || './data/vector_store';
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const tool = {
+    schema_version: 'v1',
+    name: 'expo-documentation',
+    description: 'Provides access to Expo documentation, including API references, guides, and tutorials.',
+    authentication: { type: 'none' },
+    endpoints: [
+      {
+        name: 'query',
+        description: 'Queries the Expo documentation based on a natural language query.',
+        path: '/query',
+        method: 'POST',
+        request_body: {
+          required: true,
+          description: 'The query to search for in the Expo documentation.',
+          content_type: 'application/json',
+          schema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'The natural language query to search for in the documentation.'
+              },
+              maxResults: {
+                type: 'integer',
+                description: 'The maximum number of results to return. Default is 5.'
+              }
+            },
+            required: ['query']
+          }
+        },
+        response: {
+          content_type: 'application/json',
+          schema: {
+            type: 'object',
+            properties: {
+              context: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    content: { type: 'string' },
+                    metadata: {
+                      type: 'object',
+                      properties: {
+                        source: { type: 'string' },
+                        path: { type: 'string' },
+                        type: { type: 'string' },
+                        title: { type: 'string' },
+                        url: { type: 'string' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  };
+
+  res.write(`event: tool\n`);
+  res.write(`data: ${JSON.stringify(tool)}\n\n`);
+  res.write(`event: end\n`);
+  res.write(`data: {}\n\n`);
+});
+
+// 🔹 Start the server
+app.listen(port, (): void => {
+  console.log(`🚀 Expo Documentation MCP Server running on port ${port}`);
+
+  const vectorStorePath: string = process.env.VECTOR_STORE_PATH || './data/vector_store';
   if (!fs.existsSync(vectorStorePath)) {
     fs.mkdirSync(vectorStorePath, { recursive: true });
-    console.log(`Created vector store directory at ${vectorStorePath}`);
+    console.log(`📁 Created vector store directory at ${vectorStorePath}`);
   }
 });
