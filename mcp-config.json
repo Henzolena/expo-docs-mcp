@@ -1,0 +1,86 @@
+{
+  "schema_version": "v1",
+  "name": "expo-documentation",
+  "description": "Provides access to Expo documentation, including API references, guides, and tutorials.",
+  "authentication": {
+    "type": "none"
+  },
+  "endpoints": [
+    {
+      "name": "query",
+      "description": "Queries the Expo documentation based on a natural language query.",
+      "path": "/query",
+      "method": "POST",
+      "request_body": {
+        "required": true,
+        "description": "The query to search for in the Expo documentation.",
+        "content_type": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The natural language query to search for in the documentation."
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "The maximum number of results to return. Default is 5."
+            }
+          },
+          "required": ["query"]
+        }
+      },
+      "response": {
+        "content_type": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "context": {
+              "type": "array",
+              "description": "An array of document segments that match the query.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "The unique identifier for this document segment."
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "The text content of the document segment."
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Metadata about the document segment.",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "description": "The source of the document segment."
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "The file path of the document segment."
+                      },
+                      "type": {
+                        "type": "string",
+                        "description": "The type of document segment, e.g., 'markdown', 'source-code'."
+                      },
+                      "title": {
+                        "type": "string",
+                        "description": "The title of the document."
+                      },
+                      "url": {
+                        "type": "string",
+                        "description": "The URL to the document in the Expo repository."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

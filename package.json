@@ -1,0 +1,45 @@
+{
+  "name": "expo-docs-mcp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node scripts/test-mcp.js",
+    "build": "tsc --noEmitOnError false",
+    "start": "ts-node src/server.js",
+    "dev": "ts-node src/index.ts",
+    "build-index": "ts-node src/build-index.ts",
+    "update-docs": "cd docs-source && git pull && cd .. && npm run build-index",
+    "setup": "node setup-and-run.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.51.0",
+    "@langchain/community": "^0.3.43",
+    "@langchain/core": "^0.3.56",
+    "@langchain/openai": "^0.5.10",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "hnswlib-node": "^3.0.0",
+    "langchain": "^0.3.26",
+    "markdown-it": "^14.1.0",
+    "node-fetch": "^3.3.2",
+    "recursive-readdir": "^2.2.3",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.1",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.15.18",
+    "@types/recursive-readdir": "^2.2.4",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.3"
+  }
+}
